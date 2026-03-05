@@ -13,6 +13,7 @@ type Options struct {
 	APIKey  string
 	Model   string
 	JSON    bool
+	Verbose bool
 }
 
 func NewRootCmd() *cobra.Command {
@@ -32,6 +33,7 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.PersistentFlags().StringVar(&opts.APIKey, "api-key", "", "OpenAI API key (or OPENAI_API_KEY)")
 	rootCmd.PersistentFlags().StringVar(&opts.Model, "model", "", "OpenAI model (or OPENAI_MODEL)")
 	rootCmd.PersistentFlags().BoolVar(&opts.JSON, "json", false, "Output machine-readable JSON")
+	rootCmd.PersistentFlags().BoolVar(&opts.Verbose, "verbose", false, "Show detailed doctor input/output")
 
 	rootCmd.AddCommand(newDoctorCmd(opts))
 	rootCmd.AddCommand(newPingCmd(opts))

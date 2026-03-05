@@ -34,6 +34,7 @@ type ErrorPayload struct {
 type Envelope struct {
 	OK      bool            `json:"ok"`
 	Command string          `json:"command"`
+	Verbose bool            `json:"verbose,omitempty"`
 	Config  config.SafeView `json:"config"`
 	Checks  []CheckResult   `json:"checks"`
 	Data    any             `json:"data"`
@@ -48,17 +49,28 @@ type PingData struct {
 type ModelsData struct {
 	Count              int      `json:"count"`
 	SampleIDs          []string `json:"sampleIds"`
+	AllIDs             []string `json:"allIds,omitempty"`
 	SelectedModelFound *bool    `json:"selectedModelFound,omitempty"`
 }
 
 type ProbeData struct {
-	SucceededVia string `json:"succeededVia,omitempty"`
-	Preview      string `json:"preview,omitempty"`
+	SucceededVia     string         `json:"succeededVia,omitempty"`
+	Preview          string         `json:"preview,omitempty"`
+	ResponsesRequest map[string]any `json:"responsesRequest,omitempty"`
+	ResponsesOutput  map[string]any `json:"responsesOutput,omitempty"`
+	ResponsesError   string         `json:"responsesError,omitempty"`
+	ChatRequest      map[string]any `json:"chatRequest,omitempty"`
+	ChatOutput       map[string]any `json:"chatOutput,omitempty"`
+	ChatError        string         `json:"chatError,omitempty"`
 }
 
 type DoctorData struct {
-	Passed int `json:"passed"`
-	Failed int `json:"failed"`
+	Passed int              `json:"passed"`
+	Failed int              `json:"failed"`
+	Input  *config.SafeView `json:"input,omitempty"`
+	Ping   *PingData        `json:"ping,omitempty"`
+	Models *ModelsData      `json:"models,omitempty"`
+	Probe  *ProbeData       `json:"probe,omitempty"`
 }
 
 func RunPing(ctx context.Context, cfg config.Resolved) (CheckResult, PingData) {
@@ -81,6 +93,10 @@ func RunPing(ctx context.Context, cfg config.Resolved) (CheckResult, PingData) {
 }
 
 func RunModels(ctx context.Context, cfg config.Resolved) (CheckResult, ModelsData) {
+	return runModels(ctx, cfg, false)
+}
+
+func runModels(ctx context.Context, cfg config.Resolved, verbose bool) (CheckResult, ModelsData) {
 	if cfg.APIKey == "" {
 		msg := "missing API key (use --api-key or OPENAI_API_KEY)"
 		return CheckResult{Name: CheckModels, OK: false, Message: msg}, ModelsData{}
@@ -107,6 +123,13 @@ func RunModels(ctx context.Context, cfg config.Resolved) (CheckResult, ModelsDat
 	}
 
 	data := ModelsData{Count: len(payload.Data), SampleIDs: sample}
+	if verbose {
+		all := make([]string, 0, len(payload.Data))
+		for _, m := range payload.Data {
+			all = append(all, m.ID)
+		}
+		data.AllIDs = all
+	}
 	if cfg.Model != "" {
 		found := false
 		for _, m := range payload.Data {
@@ -126,6 +149,10 @@ func RunModels(ctx context.Context, cfg config.Resolved) (CheckResult, ModelsDat
 }
 
 func RunProbe(ctx context.Context, cfg config.Resolved) (CheckResult, ProbeData) {
+	return runProbe(ctx, cfg, false)
+}
+
+func runProbe(ctx context.Context, cfg config.Resolved, verbose bool) (CheckResult, ProbeData) {
 	if cfg.APIKey == "" {
 		msg := "missing API key (use --api-key or OPENAI_API_KEY)"
 		return CheckResult{Name: CheckProbe, OK: false, Message: msg}, ProbeData{}
@@ -139,13 +166,25 @@ func RunProbe(ctx context.Context, cfg config.Resolved) (CheckResult, ProbeData)
 		"model": cfg.Model,
 		"input": "Reply with exactly: pong",
 	}
+	data := ProbeData{}
+	if verbose {
+		data.ResponsesRequest = cloneMap(responsesPayload)
+	}
 	var responsesBody map[string]any
 	responsesURL := strings.TrimRight(cfg.BaseURL, "/") + "/responses"
 	responsesCtx, cancelResponses := context.WithTimeout(ctx, 30*time.Second)
 	defer cancelResponses()
 	responsesErr := doJSONRequest(responsesCtx, http.MethodPost, responsesURL, cfg.APIKey, responsesPayload, &responsesBody)
 	if responsesErr == nil {
-		return CheckResult{Name: CheckProbe, OK: true, Message: "probe succeeded"}, ProbeData{SucceededVia: "responses", Preview: extractText(responsesBody)}
+		data.SucceededVia = "responses"
+		data.Preview = extractText(responsesBody)
+		if verbose {
+			data.ResponsesOutput = cloneMap(responsesBody)
+		}
+		return CheckResult{Name: CheckProbe, OK: true, Message: "probe succeeded"}, data
+	}
+	if verbose {
+		data.ResponsesError = compactErr(responsesErr)
 	}
 
 	chatPayload := map[string]any{
@@ -155,13 +194,24 @@ func RunProbe(ctx context.Context, cfg config.Resolved) (CheckResult, ProbeData)
 		},
 		"max_tokens": 16,
 	}
+	if verbose {
+		data.ChatRequest = cloneMap(chatPayload)
+	}
 	var chatBody map[string]any
 	chatURL := strings.TrimRight(cfg.BaseURL, "/") + "/chat/completions"
 	chatCtx, cancelChat := context.WithTimeout(ctx, 30*time.Second)
 	defer cancelChat()
 	chatErr := doJSONRequest(chatCtx, http.MethodPost, chatURL, cfg.APIKey, chatPayload, &chatBody)
 	if chatErr == nil {
-		return CheckResult{Name: CheckProbe, OK: true, Message: "probe succeeded via fallback"}, ProbeData{SucceededVia: "chat.completions", Preview: extractText(chatBody)}
+		data.SucceededVia = "chat.completions"
+		data.Preview = extractText(chatBody)
+		if verbose {
+			data.ChatOutput = cloneMap(chatBody)
+		}
+		return CheckResult{Name: CheckProbe, OK: true, Message: "probe succeeded via fallback"}, data
+	}
+	if verbose {
+		data.ChatError = compactErr(chatErr)
 	}
 
 	msg := fmt.Sprintf(
@@ -169,19 +219,19 @@ func RunProbe(ctx context.Context, cfg config.Resolved) (CheckResult, ProbeData)
 		compactErr(responsesErr),
 		compactErr(chatErr),
 	)
-	return CheckResult{Name: CheckProbe, OK: false, Message: msg}, ProbeData{}
+	return CheckResult{Name: CheckProbe, OK: false, Message: msg}, data
 }
 
-func RunDoctor(ctx context.Context, cfg config.Resolved) ([]CheckResult, DoctorData) {
+func RunDoctor(ctx context.Context, cfg config.Resolved, verbose bool) ([]CheckResult, DoctorData) {
 	results := make([]CheckResult, 0, 3)
 
-	pingResult, _ := RunPing(ctx, cfg)
+	pingResult, pingData := RunPing(ctx, cfg)
 	results = append(results, pingResult)
 
-	modelsResult, _ := RunModels(ctx, cfg)
+	modelsResult, modelsData := runModels(ctx, cfg, verbose)
 	results = append(results, modelsResult)
 
-	probeResult, _ := RunProbe(ctx, cfg)
+	probeResult, probeData := runProbe(ctx, cfg, verbose)
 	results = append(results, probeResult)
 
 	failed := 0
@@ -191,10 +241,19 @@ func RunDoctor(ctx context.Context, cfg config.Resolved) ([]CheckResult, DoctorD
 		}
 	}
 
-	return results, DoctorData{Passed: len(results) - failed, Failed: failed}
+	summary := DoctorData{Passed: len(results) - failed, Failed: failed}
+	if verbose {
+		safe := cfg.Safe()
+		summary.Input = &safe
+		summary.Ping = &pingData
+		summary.Models = &modelsData
+		summary.Probe = &probeData
+	}
+
+	return results, summary
 }
 
-func BuildEnvelope(command string, cfg config.Resolved, results []CheckResult, data any) Envelope {
+func BuildEnvelope(command string, cfg config.Resolved, results []CheckResult, data any, verbose bool) Envelope {
 	ok := true
 	for _, r := range results {
 		if !r.OK {
@@ -211,6 +270,7 @@ func BuildEnvelope(command string, cfg config.Resolved, results []CheckResult, d
 	return Envelope{
 		OK:      ok,
 		Command: command,
+		Verbose: verbose,
 		Config:  cfg.Safe(),
 		Checks:  results,
 		Data:    data,
@@ -306,4 +366,19 @@ func compactErr(err error) string {
 		return msg[:180] + "..."
 	}
 	return msg
+}
+
+func cloneMap(src map[string]any) map[string]any {
+	if src == nil {
+		return nil
+	}
+	b, err := json.Marshal(src)
+	if err != nil {
+		return nil
+	}
+	var out map[string]any
+	if err := json.Unmarshal(b, &out); err != nil {
+		return nil
+	}
+	return out
 }

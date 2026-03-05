@@ -17,8 +17,8 @@ func runDoctor(cmd *cobra.Command, opts *Options) error {
 	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
 	defer cancel()
 
-	results, data := checks.RunDoctor(ctx, cfg)
-	env := checks.BuildEnvelope("doctor", cfg, results, data)
+	results, data := checks.RunDoctor(ctx, cfg, opts.Verbose)
+	env := checks.BuildEnvelope("doctor", cfg, results, data, opts.Verbose)
 	return renderAndExit(env, opts.JSON)
 }
 
@@ -28,7 +28,7 @@ func runPing(cmd *cobra.Command, opts *Options) error {
 	defer cancel()
 
 	result, data := checks.RunPing(ctx, cfg)
-	env := checks.BuildEnvelope("ping", cfg, []checks.CheckResult{result}, data)
+	env := checks.BuildEnvelope("ping", cfg, []checks.CheckResult{result}, data, opts.Verbose)
 	return renderAndExit(env, opts.JSON)
 }
 
@@ -38,7 +38,7 @@ func runModels(cmd *cobra.Command, opts *Options) error {
 	defer cancel()
 
 	result, data := checks.RunModels(ctx, cfg)
-	env := checks.BuildEnvelope("models", cfg, []checks.CheckResult{result}, data)
+	env := checks.BuildEnvelope("models", cfg, []checks.CheckResult{result}, data, opts.Verbose)
 	return renderAndExit(env, opts.JSON)
 }
 
@@ -48,7 +48,7 @@ func runProbe(cmd *cobra.Command, opts *Options) error {
 	defer cancel()
 
 	result, data := checks.RunProbe(ctx, cfg)
-	env := checks.BuildEnvelope("probe", cfg, []checks.CheckResult{result}, data)
+	env := checks.BuildEnvelope("probe", cfg, []checks.CheckResult{result}, data, opts.Verbose)
 	return renderAndExit(env, opts.JSON)
 }
 

@@ -16,6 +16,7 @@ A tiny CLI for debugging OpenAI API config.
 - `--api-key` (or `OPENAI_API_KEY`)
 - `--model` (or `OPENAI_MODEL`)
 - `--json` (machine-readable output)
+- `--verbose` (show detailed doctor input/output and full model list)
 
 Flags override environment variables.
 
@@ -101,6 +102,12 @@ go build -o oaicheck .
 
 ```bash
 OPENAI_API_KEY=... OPENAI_MODEL=gpt-4.1-mini oaicheck doctor
+```
+
+Verbose example:
+
+```bash
+OPENAI_API_KEY=... OPENAI_MODEL=gpt-4.1-mini oaicheck doctor --verbose
 ```
 
 ## Homebrew tap auto-update
