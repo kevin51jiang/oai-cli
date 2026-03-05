@@ -24,7 +24,7 @@ func NewRootCmd() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDoctor(cmd, opts)
+			return cmd.Help()
 		},
 	}
 

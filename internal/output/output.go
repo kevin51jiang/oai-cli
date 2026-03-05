@@ -9,36 +9,43 @@ import (
 )
 
 func RenderHuman(w io.Writer, env checks.Envelope) error {
+	nameWidth := 0
 	for _, check := range env.Checks {
-		status := "PASS"
+		if len(check.Name) > nameWidth {
+			nameWidth = len(check.Name)
+		}
+	}
+
+	for _, check := range env.Checks {
 		icon := "✅"
 		if !check.OK {
-			status = "FAIL"
 			icon = "❌"
 		}
 
+		if _, err := fmt.Fprintf(w, "%s %-*s %s\n", icon, nameWidth, check.Name, check.Message); err != nil {
+			return err
+		}
 		if check.Details != "" {
-			if _, err := fmt.Fprintf(w, "%s %s %s: %s (%s)\n", icon, status, check.Name, check.Message, check.Details); err != nil {
+			if _, err := fmt.Fprintf(w, "  ↳ %s\n", check.Details); err != nil {
 				return err
 			}
-			continue
-		}
-
-		if _, err := fmt.Fprintf(w, "%s %s %s: %s\n", icon, status, check.Name, check.Message); err != nil {
-			return err
 		}
 	}
 
 	if env.Command == "doctor" {
 		if summary, ok := env.Data.(checks.DoctorData); ok {
-			if _, err := fmt.Fprintf(w, "Summary: %d passed, %d failed\n", summary.Passed, summary.Failed); err != nil {
+			status := "healthy"
+			if summary.Failed > 0 {
+				status = "needs attention"
+			}
+			if _, err := fmt.Fprintf(w, "\nSummary: %d passed, %d failed (%s)\n", summary.Passed, summary.Failed, status); err != nil {
 				return err
 			}
 		}
 	}
 
 	if env.Error != nil {
-		if _, err := fmt.Fprintf(w, "Error: %s\n", env.Error.Message); err != nil {
+		if _, err := fmt.Fprintf(w, "\nError: %s\n", env.Error.Message); err != nil {
 			return err
 		}
 	}

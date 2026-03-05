@@ -4,7 +4,7 @@ A tiny CLI for debugging OpenAI API config.
 
 ## Commands
 
-- `oaicheck` (same as `oaicheck doctor`)
+- `oaicheck` (shows help)
 - `oaicheck doctor`
 - `oaicheck ping`
 - `oaicheck models`
@@ -34,6 +34,61 @@ Example:
 
 ```bash
 oaicheck doctor --json
+```
+
+## Shell completion
+
+Generate completion scripts with:
+
+```bash
+oaicheck completion <shell>
+```
+
+### Bash (Linux)
+
+```bash
+mkdir -p ~/.local/share/bash-completion/completions
+oaicheck completion bash > ~/.local/share/bash-completion/completions/oaicheck
+```
+
+### Bash (macOS + Homebrew bash-completion)
+
+```bash
+oaicheck completion bash > "$(brew --prefix)/etc/bash_completion.d/oaicheck"
+```
+
+### Zsh
+
+```bash
+mkdir -p "${HOME}/.zfunc"
+oaicheck completion zsh > "${HOME}/.zfunc/_oaicheck"
+```
+
+Then ensure `${HOME}/.zfunc` is in `fpath`, and initialize completion:
+
+```bash
+autoload -U compinit && compinit
+```
+
+### Fish
+
+```bash
+mkdir -p ~/.config/fish/completions
+oaicheck completion fish > ~/.config/fish/completions/oaicheck.fish
+```
+
+### PowerShell
+
+For the current session:
+
+```powershell
+oaicheck completion powershell | Out-String | Invoke-Expression
+```
+
+To persist:
+
+```powershell
+oaicheck completion powershell > $PROFILE.CurrentUserAllHosts
 ```
 
 ## Build
