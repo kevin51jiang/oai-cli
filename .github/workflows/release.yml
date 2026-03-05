@@ -87,7 +87,7 @@ jobs:
             dist/*.zip
 
       - name: Bump Homebrew formula
-        if: steps.semver.outputs.new_tag != '' && secrets.HOMEBREW_TAP_GITHUB_TOKEN != ''
+        if: steps.semver.outputs.new_tag != ''
         uses: mislav/bump-homebrew-formula-action@v3.6
         with:
           formula-name: oaicheck
