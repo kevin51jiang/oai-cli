@@ -16,6 +16,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -26,14 +28,23 @@ jobs:
       - name: Run tests
         run: make test
 
+      - name: Determine next semantic version
+        id: semver
+        uses: mathieudutour/github-tag-action@v6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          tag_prefix: v
+          default_bump: false
+
       - name: Build release artifacts
+        if: steps.semver.outputs.new_tag != ''
         env:
           APP: oaicheck
         run: |
           set -euo pipefail
           mkdir -p dist
 
-          VERSION="main-${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}"
+          VERSION="${{ steps.semver.outputs.new_tag }}"
           echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
 
           targets=(
@@ -62,18 +73,13 @@ jobs:
             fi
           done
 
-      - name: Create Git tag
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "$VERSION"
-          git push origin "$VERSION"
-
       - name: Publish GitHub release
+        if: steps.semver.outputs.new_tag != ''
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ env.VERSION }}
-          name: ${{ env.VERSION }}
+          tag_name: ${{ steps.semver.outputs.new_tag }}
+          name: ${{ steps.semver.outputs.new_tag }}
+          body: ${{ steps.semver.outputs.changelog }}
           generate_release_notes: true
           files: |
             dist/*.tar.gz
