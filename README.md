@@ -102,3 +102,11 @@ go build -o oaicheck .
 ```bash
 OPENAI_API_KEY=... OPENAI_MODEL=gpt-4.1-mini oaicheck doctor
 ```
+
+## Homebrew tap auto-update
+
+Releases automatically bump the `oaicheck` formula in `kevin51jiang/homebrew-tap` via GitHub Actions.
+
+Required repository secret:
+
+- `HOMEBREW_TAP_GITHUB_TOKEN`: a PAT with push access to `kevin51jiang/homebrew-tap`
