@@ -90,6 +90,7 @@ jobs:
         if: steps.semver.outputs.new_tag != ''
         uses: mislav/bump-homebrew-formula-action@v3.6
         with:
+          tag-name: ${{ steps.semver.outputs.new_tag }}
           formula-name: oaicheck
           homebrew-tap: kevin51jiang/homebrew-tap
           base-branch: main
