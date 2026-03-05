@@ -9,6 +9,7 @@ import (
 
 	"oaicheck/internal/checks"
 	"oaicheck/internal/config"
+	"oaicheck/internal/doctorcfg"
 	"oaicheck/internal/output"
 )
 
@@ -19,6 +20,37 @@ func runDoctor(cmd *cobra.Command, opts *Options) error {
 
 	results, data := checks.RunDoctor(ctx, cfg)
 	env := checks.BuildEnvelope("doctor", cfg, results, data)
+	return renderAndExit(env, opts.JSON)
+}
+
+func runDoctorCodex(cmd *cobra.Command, opts *Options) error {
+	resolved := doctorcfg.ResolveCodex(doctorcfg.CodexOptions{
+		CWD:             "",
+		ProfileOverride: opts.CodexProfile,
+		ConfigOverride:  opts.CodexConfig,
+	})
+	cfg := config.ResolveWithFallback(opts.BaseURL, opts.APIKey, opts.Model, config.Resolved{
+		BaseURL: resolved.BaseURL,
+		APIKey:  resolved.APIKey,
+		Model:   resolved.Model,
+	})
+
+	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
+	defer cancel()
+
+	results, data := checks.RunDoctor(ctx, cfg)
+	results = append([]checks.CheckResult{{
+		Name:    resolved.CheckName,
+		OK:      resolved.CheckOK,
+		Message: resolved.CheckMessage,
+		Details: resolved.CheckDetails,
+	}}, results...)
+	data = checks.DoctorData{
+		Passed: data.Passed + boolToInt(resolved.CheckOK),
+		Failed: data.Failed + boolToInt(!resolved.CheckOK),
+	}
+
+	env := checks.BuildEnvelope("doctor codex", cfg, results, data)
 	return renderAndExit(env, opts.JSON)
 }
 
@@ -66,4 +98,11 @@ func renderAndExit(env checks.Envelope, asJSON bool) error {
 		return ErrCheckFailed
 	}
 	return nil
+}
+
+func boolToInt(v bool) int {
+	if v {
+		return 1
+	}
+	return 0
 }

@@ -100,3 +100,23 @@ func TestRenderHumanDoctorFailure(t *testing.T) {
 		t.Fatalf("unexpected output\nwant:\n%s\ngot:\n%s", want, got)
 	}
 }
+
+func TestRenderHumanDoctorCodexIncludesSummary(t *testing.T) {
+	env := checks.Envelope{
+		OK:      true,
+		Command: "doctor codex",
+		Checks: []checks.CheckResult{
+			{Name: "codex-config", OK: true, Message: "codex config resolved"},
+			{Name: checks.CheckPing, OK: true, Message: "reachable"},
+		},
+		Data: checks.DoctorData{Passed: 2, Failed: 0},
+	}
+
+	var buf bytes.Buffer
+	if err := RenderHuman(&buf, env); err != nil {
+		t.Fatalf("render human: %v", err)
+	}
+	if !strings.Contains(buf.String(), "Summary: 2 passed, 0 failed (healthy)") {
+		t.Fatalf("expected doctor summary in output, got:\n%s", buf.String())
+	}
+}

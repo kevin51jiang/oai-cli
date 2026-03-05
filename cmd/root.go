@@ -13,6 +13,9 @@ type Options struct {
 	APIKey  string
 	Model   string
 	JSON    bool
+
+	CodexProfile string
+	CodexConfig  string
 }
 
 func NewRootCmd() *cobra.Command {
@@ -42,13 +45,28 @@ func NewRootCmd() *cobra.Command {
 }
 
 func newDoctorCmd(opts *Options) *cobra.Command {
-	return &cobra.Command{
+	doctorCmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Run all checks and show summary",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDoctor(cmd, opts)
 		},
 	}
+	doctorCmd.AddCommand(newDoctorCodexCmd(opts))
+	return doctorCmd
+}
+
+func newDoctorCodexCmd(opts *Options) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "codex",
+		Short: "Run doctor checks using Codex config.toml/auth.json as input",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runDoctorCodex(cmd, opts)
+		},
+	}
+	cmd.Flags().StringVar(&opts.CodexProfile, "codex-profile", "", "Codex profile name override")
+	cmd.Flags().StringVar(&opts.CodexConfig, "codex-config", "", "Additional Codex config.toml path override")
+	return cmd
 }
 
 func newPingCmd(opts *Options) *cobra.Command {

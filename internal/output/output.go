@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 
 	"oaicheck/internal/checks"
 )
@@ -32,7 +33,7 @@ func RenderHuman(w io.Writer, env checks.Envelope) error {
 		}
 	}
 
-	if env.Command == "doctor" {
+	if strings.HasPrefix(env.Command, "doctor") {
 		if summary, ok := env.Data.(checks.DoctorData); ok {
 			status := "healthy"
 			if summary.Failed > 0 {

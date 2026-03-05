@@ -6,6 +6,7 @@ A tiny CLI for debugging OpenAI API config.
 
 - `oaicheck` (shows help)
 - `oaicheck doctor`
+- `oaicheck doctor codex`
 - `oaicheck ping`
 - `oaicheck models`
 - `oaicheck probe`
@@ -16,6 +17,8 @@ A tiny CLI for debugging OpenAI API config.
 - `--api-key` (or `OPENAI_API_KEY`)
 - `--model` (or `OPENAI_MODEL`)
 - `--json` (machine-readable output)
+- `oaicheck doctor codex --codex-profile <name>` (override Codex profile)
+- `oaicheck doctor codex --codex-config <path>` (extra Codex config file with highest precedence)
 
 Flags override environment variables.
 
@@ -25,6 +28,7 @@ Flags override environment variables.
 - `models`: calls OpenAI models list to verify base URL + API key.
 - `probe`: sends a tiny generation request to `/responses`; if that fails, retries with `/chat/completions`.
 - `doctor`: runs all three checks and summarizes pass/fail.
+- `doctor codex`: resolves base URL, API key, and model from Codex config/auth, then runs doctor checks.
 
 ## JSON mode
 
@@ -110,4 +114,3 @@ Releases automatically bump the `oaicheck` formula in `kevin51jiang/homebrew-tap
 Required repository secret:
 
 - `HOMEBREW_TAP_GITHUB_TOKEN`: a PAT with push access to `kevin51jiang/homebrew-tap`
-
