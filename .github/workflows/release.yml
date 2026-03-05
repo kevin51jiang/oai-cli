@@ -84,3 +84,19 @@ jobs:
           files: |
             dist/*.tar.gz
             dist/*.zip
+
+      - name: Bump Homebrew formula
+        if: steps.semver.outputs.new_tag != '' && secrets.HOMEBREW_TAP_GITHUB_TOKEN != ''
+        environment: homebrew-tap-env
+        uses: mislav/bump-homebrew-formula-action@v3.6
+        with:
+          formula-name: oaicheck
+          homebrew-tap: kevin51jiang/homebrew-tap
+          base-branch: main
+          download-url: https://github.com/${{ github.repository }}/archive/refs/tags/${{ steps.semver.outputs.new_tag }}.tar.gz
+          commit-message: |
+            {{formulaName}} {{version}}
+
+            Created by ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          COMMITTER_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
