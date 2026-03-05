@@ -141,7 +141,10 @@ func RunProbe(ctx context.Context, cfg config.Resolved) (CheckResult, ProbeData)
 	}
 	var responsesBody map[string]any
 	responsesURL := strings.TrimRight(cfg.BaseURL, "/") + "/responses"
-	if err := doJSONRequest(ctx, http.MethodPost, responsesURL, cfg.APIKey, responsesPayload, &responsesBody); err == nil {
+	responsesCtx, cancelResponses := context.WithTimeout(ctx, 30*time.Second)
+	defer cancelResponses()
+	responsesErr := doJSONRequest(responsesCtx, http.MethodPost, responsesURL, cfg.APIKey, responsesPayload, &responsesBody)
+	if responsesErr == nil {
 		return CheckResult{Name: CheckProbe, OK: true, Message: "probe succeeded"}, ProbeData{SucceededVia: "responses", Preview: extractText(responsesBody)}
 	}
 
@@ -154,11 +157,18 @@ func RunProbe(ctx context.Context, cfg config.Resolved) (CheckResult, ProbeData)
 	}
 	var chatBody map[string]any
 	chatURL := strings.TrimRight(cfg.BaseURL, "/") + "/chat/completions"
-	if err := doJSONRequest(ctx, http.MethodPost, chatURL, cfg.APIKey, chatPayload, &chatBody); err == nil {
+	chatCtx, cancelChat := context.WithTimeout(ctx, 30*time.Second)
+	defer cancelChat()
+	chatErr := doJSONRequest(chatCtx, http.MethodPost, chatURL, cfg.APIKey, chatPayload, &chatBody)
+	if chatErr == nil {
 		return CheckResult{Name: CheckProbe, OK: true, Message: "probe succeeded via fallback"}, ProbeData{SucceededVia: "chat.completions", Preview: extractText(chatBody)}
 	}
 
-	msg := "probe failed on both responses and chat.completions"
+	msg := fmt.Sprintf(
+		"probe failed: /responses: %s; /chat/completions: %s",
+		compactErr(responsesErr),
+		compactErr(chatErr),
+	)
 	return CheckResult{Name: CheckProbe, OK: false, Message: msg}, ProbeData{}
 }
 
@@ -285,4 +295,15 @@ func extractText(body map[string]any) string {
 		return content
 	}
 	return ""
+}
+
+func compactErr(err error) string {
+	if err == nil {
+		return "unknown error"
+	}
+	msg := strings.TrimSpace(err.Error())
+	if len(msg) > 180 {
+		return msg[:180] + "..."
+	}
+	return msg
 }
